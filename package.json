@@ -1,0 +1,20 @@
+{
+  "name": "playstore-review-recorder",
+  "version": "1.0.0",
+  "description": "Production-ready automated Play Store user reviews recorder with device spoofing, Google Drive upload, and webhook notification",
+  "main": "src/scraper.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node src/scraper.js",
+    "test": "node -e \"console.log('Validating modules...'); require('./src/apiClient'); require('./src/deviceSpoofer'); require('./src/uploader'); console.log('Modules valid.');\""
+  },
+  "dependencies": {
+    "axios": "^1.7.2",
+    "googleapis": "^140.0.0",
+    "webdriverio": "^9.0.0"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "license": "MIT"
+}

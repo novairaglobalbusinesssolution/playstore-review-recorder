@@ -1,0 +1,53 @@
+name: Daily Play Store Review Recorder
+
+on:
+  schedule:
+    - cron: '0 14 * * *' # 14:00 UTC = 19:30 (7:30 PM) Asia/Kolkata
+  workflow_dispatch:
+
+jobs:
+  record-reviews:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install project dependencies
+        run: npm install
+
+      - name: Install Appium & UiAutomator2 driver
+        run: |
+          npm install -g appium
+          appium driver install uiautomator2
+
+      - name: Enable KVM permissions
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Run Review Automation with Android Emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 33
+          target: google_apis_playstore
+          arch: x86_64
+          profile: pixel_7
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim
+          script: |
+            appium &
+            sleep 5
+            node src/scraper.js
+        env:
+          TASKS_API_URL: ${{ secrets.TASKS_API_URL }}
+          API_SECRET_KEY: ${{ secrets.API_SECRET_KEY }}
+          WEBHOOK_COMPLETE_URL: ${{ secrets.WEBHOOK_COMPLETE_URL }}
+          GDRIVE_FOLDER_ID: ${{ secrets.GDRIVE_FOLDER_ID }}
+          GDRIVE_SERVICE_ACCOUNT_JSON: ${{ secrets.GDRIVE_SERVICE_ACCOUNT_JSON }}
