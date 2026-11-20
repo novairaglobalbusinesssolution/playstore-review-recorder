@@ -482,14 +482,56 @@ function generatePlayStoreHtml({ appInfo, reviews, targetDay }) {
 }
 
 /**
+ * Detects the correct Chromium path on Render/Linux or defaults to bundled Chrome
+ */
+function getChromiumExecutablePath() {
+  if (process.env.PUPPETEER_EXECUTABLE_PATH && fs.existsSync(process.env.PUPPETEER_EXECUTABLE_PATH)) {
+    return process.env.PUPPETEER_EXECUTABLE_PATH;
+  }
+  const linuxPaths = [
+    '/usr/bin/chromium',
+    '/usr/bin/chromium-browser',
+    '/usr/bin/google-chrome',
+    '/usr/bin/google-chrome-stable'
+  ];
+  for (const p of linuxPaths) {
+    if (fs.existsSync(p)) return p;
+  }
+  return undefined;
+}
+
+/**
+ * Detects the correct FFmpeg path on Render/Linux or Windows
+ */
+function getFfmpegPath() {
+  if (process.env.FFMPEG_PATH && fs.existsSync(process.env.FFMPEG_PATH)) {
+    return process.env.FFMPEG_PATH;
+  }
+  const paths = [
+    '/usr/bin/ffmpeg',
+    '/usr/local/bin/ffmpeg',
+    'C:\\Users\\subha\\AppData\\Local\\ffmpeg\\bin\\ffmpeg.exe'
+  ];
+  for (const p of paths) {
+    if (fs.existsSync(p)) return p;
+  }
+  return undefined;
+}
+
+/**
  * Cloud Native Play Store Review Video Recorder
  * Runs 100% inside Render without an Android emulator
  */
-async function recordPlayStoreReviewVideo({ task_id, package_name, target_day, app_name }) {
-  console.log(`\n======================================================`);
-  console.log(`[CloudRecorder] Starting video record for Task #${task_id}`);
-  console.log(`[CloudRecorder] Package: ${package_name} | Target: ${target_day}`);
-  console.log(`======================================================`);
+async function recordPlayStoreReviewVideo({ task_id, package_name, target_day, app_name, logger }) {
+  const log = (msg) => {
+    console.log(msg);
+    if (typeof logger === 'function') logger(msg);
+  };
+
+  log(`\n======================================================`);
+  log(`[CloudRecorder] Starting video record for Task #${task_id}`);
+  log(`[CloudRecorder] Package: ${package_name} | Target: ${target_day}`);
+  log(`======================================================`);
 
   const formattedTargetDay = normalizeDateStr(target_day);
 
@@ -505,12 +547,12 @@ async function recordPlayStoreReviewVideo({ task_id, package_name, target_day, a
     const fetchedApp = await gplay.app({ appId: package_name, country: 'in', lang: 'en' });
     if (fetchedApp) appInfo = fetchedApp;
   } catch (err) {
-    console.warn(`[CloudRecorder] Could not fetch remote app metadata: ${err.message}`);
+    log(`[CloudRecorder] Note: Using default app metadata (${err.message})`);
   }
 
   let scrapedReviews = [];
   try {
-    console.log(`[CloudRecorder] Fetching Play Store reviews for ${package_name}...`);
+    log(`[CloudRecorder] Fetching Play Store reviews for ${package_name}...`);
     const revRes = await gplay.reviews({
       appId: package_name,
       sort: gplay.sort ? gplay.sort.NEWEST : 2,
@@ -519,9 +561,9 @@ async function recordPlayStoreReviewVideo({ task_id, package_name, target_day, a
       lang: 'en'
     });
     scrapedReviews = (revRes && revRes.data) || [];
-    console.log(`[CloudRecorder] Retrieved ${scrapedReviews.length} real reviews from Play Store.`);
+    log(`[CloudRecorder] Retrieved ${scrapedReviews.length} real reviews from Play Store.`);
   } catch (err) {
-    console.warn(`[CloudRecorder] Reviews fetch warning: ${err.message}`);
+    log(`[CloudRecorder] Reviews fetch note: ${err.message}`);
   }
 
   // Format scraped reviews
@@ -561,8 +603,9 @@ async function recordPlayStoreReviewVideo({ task_id, package_name, target_day, a
   const outputVideoPath = path.join(tempDir, videoFileName);
 
   // Step 4: Launch Puppeteer in headless mobile mode
-  console.log('[CloudRecorder] Launching headless browser for screen recording...');
-  const browser = await puppeteer.launch({
+  log('[CloudRecorder] Launching headless browser for screen recording...');
+  const chromiumPath = getChromiumExecutablePath();
+  const launchOptions = {
     headless: true,
     args: [
       '--no-sandbox',
@@ -570,66 +613,85 @@ async function recordPlayStoreReviewVideo({ task_id, package_name, target_day, a
       '--disable-dev-shm-usage',
       '--disable-gpu',
       '--no-first-run',
-      '--no-zygote',
-      '--single-process'
+      '--no-zygote'
     ]
-  });
-
-  const page = await browser.newPage();
-  // Exact smartphone viewport (Pixel / Galaxy aspect ratio)
-  await page.setViewport({
-    width: 412,
-    height: 915,
-    deviceScaleFactor: 2
-  });
-
-  await page.setContent(htmlContent, { waitUntil: 'networkidle0' });
-
-  // Step 5: Start screen recorder
-  const recorder = new PuppeteerScreenRecorder(page, {
-    fps: 30,
-    videoFrame: { width: 412, height: 915 }
-  });
-
-  console.log(`[CloudRecorder] Recording video to ${videoFileName}...`);
-  await recorder.start(outputVideoPath);
-
-  // Initial reading pause on header
-  await new Promise(r => setTimeout(r, 2200));
-
-  // Perform natural scrolling down the review cards
-  const totalScrollSteps = Math.min(18, Math.max(8, formattedReviews.length));
-  for (let s = 1; s <= totalScrollSteps; s++) {
-    await page.evaluate(() => {
-      window.scrollBy({ top: 220, behavior: 'smooth' });
-    });
-    // Natural human reading pause between scrolls (1.5s to 2.2s)
-    const pauseTime = Math.floor(Math.random() * (2200 - 1500 + 1)) + 1500;
-    await new Promise(r => setTimeout(r, pauseTime));
+  };
+  if (chromiumPath) {
+    launchOptions.executablePath = chromiumPath;
+    log(`[CloudRecorder] Using Chromium executable at: ${chromiumPath}`);
   }
 
-  // Final hold
-  await new Promise(r => setTimeout(r, 1800));
+  const browser = await puppeteer.launch(launchOptions);
+  let recorder = null;
 
-  // Stop recording and finalize MP4
-  console.log('[CloudRecorder] Finalizing MP4 container...');
-  await recorder.stop();
-  await browser.close();
+  try {
+    const page = await browser.newPage();
+    // Exact smartphone viewport (Pixel / Galaxy aspect ratio)
+    await page.setViewport({
+      width: 412,
+      height: 915,
+      deviceScaleFactor: 2
+    });
+
+    await page.setContent(htmlContent, { waitUntil: 'networkidle0' });
+
+    // Step 5: Start screen recorder
+    const ffmpegPath = getFfmpegPath();
+    const recorderOptions = {
+      fps: 30,
+      videoFrame: { width: 412, height: 915 }
+    };
+    if (ffmpegPath) {
+      recorderOptions.ffmpeg_Path = ffmpegPath;
+      log(`[CloudRecorder] Using FFmpeg at: ${ffmpegPath}`);
+    }
+
+    recorder = new PuppeteerScreenRecorder(page, recorderOptions);
+
+    log(`[CloudRecorder] Recording video to ${videoFileName}...`);
+    await recorder.start(outputVideoPath);
+
+    // Initial reading pause on header
+    await new Promise(r => setTimeout(r, 2200));
+
+    // Perform natural scrolling down the review cards
+    const totalScrollSteps = Math.min(18, Math.max(8, formattedReviews.length));
+    for (let s = 1; s <= totalScrollSteps; s++) {
+      await page.evaluate(() => {
+        window.scrollBy({ top: 220, behavior: 'smooth' });
+      });
+      // Natural human reading pause between scrolls (1.5s to 2.2s)
+      const pauseTime = Math.floor(Math.random() * (2200 - 1500 + 1)) + 1500;
+      await new Promise(r => setTimeout(r, pauseTime));
+    }
+
+    // Final hold
+    await new Promise(r => setTimeout(r, 1800));
+
+    // Stop recording and finalize MP4
+    log('[CloudRecorder] Finalizing MP4 container...');
+    await recorder.stop();
+  } finally {
+    try {
+      await browser.close();
+    } catch (_) {}
+  }
 
   if (!fs.existsSync(outputVideoPath)) {
     throw new Error(`Video file failed to generate at ${outputVideoPath}`);
   }
 
   const fileSizeMB = (fs.statSync(outputVideoPath).size / (1024 * 1024)).toFixed(2);
-  console.log(`[CloudRecorder] Video rendered successfully! File: ${videoFileName} (${fileSizeMB} MB)`);
+  log(`[CloudRecorder] Video rendered successfully! File: ${videoFileName} (${fileSizeMB} MB)`);
 
   // Step 6: Upload to Google Drive / Apps Script or serve via Render Host
   let driveLink = '';
   try {
+    log(`[CloudRecorder] Uploading to Google Drive / Render Cloud Host...`);
     driveLink = await uploadVideoToDrive(outputVideoPath);
-    console.log(`[CloudRecorder] Video shareable link: ${driveLink}`);
+    log(`[CloudRecorder] Video shareable link: ${driveLink}`);
   } catch (uploadErr) {
-    console.warn(`[CloudRecorder] Upload warning: ${uploadErr.message}`);
+    log(`[CloudRecorder] Upload warning: ${uploadErr.message}`);
     const renderHost = process.env.RENDER_EXTERNAL_URL || 'https://playstore-review-recorder.onrender.com';
     driveLink = `${renderHost}/videos/${videoFileName}`;
   }
@@ -638,7 +700,7 @@ async function recordPlayStoreReviewVideo({ task_id, package_name, target_day, a
   // If it's being served directly from Render's /videos, keep it so it's streamable and downloadable!
   if (driveLink && !driveLink.includes('/videos/') && fs.existsSync(outputVideoPath)) {
     fs.unlinkSync(outputVideoPath);
-    console.log(`[CloudRecorder] Temporary video cleaned up.`);
+    log(`[CloudRecorder] Temporary video cleaned up.`);
   }
 
   // Step 8: Notify completion webhook

@@ -448,6 +448,51 @@
         document.getElementById('terminalLogCount').innerText = `${jobStatusData.logs.length} lines`;
       }
 
+      // Update Pipeline Step Indicators
+      const step1Ind = document.getElementById('step1Indicator');
+      const step1St = document.getElementById('step1Status');
+      const step2Ind = document.getElementById('step2Indicator');
+      const step2St = document.getElementById('step2Status');
+      const step3Ind = document.getElementById('step3Indicator');
+      const step3St = document.getElementById('step3Status');
+      const step4Ind = document.getElementById('step4Indicator');
+      const step4St = document.getElementById('step4Status');
+
+      if (status === 'running') {
+        const lastFewLogs = (jobStatusData.logs || []).slice(-6).join(' ');
+        if (lastFewLogs.includes('Uploading') || lastFewLogs.includes('shareable')) {
+          setStep(step1Ind, step1St, 'done');
+          setStep(step2Ind, step2St, 'done');
+          setStep(step3Ind, step3St, 'done');
+          setStep(step4Ind, step4St, 'active', 'Uploading...');
+        } else if (lastFewLogs.includes('Recording') || lastFewLogs.includes('scroll') || lastFewLogs.includes('Finalizing')) {
+          setStep(step1Ind, step1St, 'done');
+          setStep(step2Ind, step2St, 'done');
+          setStep(step3Ind, step3St, 'active', 'Recording...');
+          setStep(step4Ind, step4St, 'ready');
+        } else if (lastFewLogs.includes('browser') || lastFewLogs.includes('Launch') || lastFewLogs.includes('Chromium')) {
+          setStep(step1Ind, step1St, 'done');
+          setStep(step2Ind, step2St, 'active', 'Rendering...');
+          setStep(step3Ind, step3St, 'ready');
+          setStep(step4Ind, step4St, 'ready');
+        } else {
+          setStep(step1Ind, step1St, 'active', 'Scraping...');
+          setStep(step2Ind, step2St, 'ready');
+          setStep(step3Ind, step3St, 'ready');
+          setStep(step4Ind, step4St, 'ready');
+        }
+      } else if (status === 'completed') {
+        setStep(step1Ind, step1St, 'done');
+        setStep(step2Ind, step2St, 'done');
+        setStep(step3Ind, step3St, 'done');
+        setStep(step4Ind, step4St, 'done');
+      } else {
+        setStep(step1Ind, step1St, 'ready');
+        setStep(step2Ind, step2St, 'ready');
+        setStep(step3Ind, step3St, 'ready');
+        setStep(step4Ind, step4St, 'ready');
+      }
+
       // Track last completed results for video links
       if (jobStatusData.lastResult && Array.isArray(jobStatusData.lastResult)) {
         jobStatusData.lastResult.forEach(res => {
@@ -456,6 +501,23 @@
           }
         });
         renderTasksTable();
+      }
+    }
+
+    function setStep(ind, st, state, customLabel) {
+      if (!ind || !st) return;
+      if (state === 'active') {
+        ind.className = 'w-2 h-2 rounded-full bg-cyan-400 animate-ping';
+        st.className = 'font-mono text-cyan-400 text-[11px] font-bold';
+        st.innerText = customLabel || 'In Progress';
+      } else if (state === 'done') {
+        ind.className = 'w-2 h-2 rounded-full bg-emerald-400';
+        st.className = 'font-mono text-emerald-400 text-[11px] font-bold';
+        st.innerText = 'Done ✓';
+      } else {
+        ind.className = 'w-2 h-2 rounded-full bg-slate-700';
+        st.className = 'font-mono text-slate-500 text-[11px]';
+        st.innerText = 'Ready';
       }
     }
 
@@ -534,7 +596,12 @@
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ key: 'Novaira002@#' })
         });
-        const data = await res.json();
+        const text = await res.text();
+        let data = {};
+        try { data = JSON.parse(text); } catch (e) {}
+        if (!res.ok) {
+          throw new Error(data.error || data.message || `Server returned HTTP ${res.status}`);
+        }
         pollStatus();
       } catch (err) {
         alert('Error triggering recording: ' + err.message);
@@ -544,7 +611,12 @@
     async function recordSingleTask(taskId) {
       try {
         const res = await fetch(`/api/record-task?task_id=${taskId}`);
-        const data = await res.json();
+        const text = await res.text();
+        let data = {};
+        try { data = JSON.parse(text); } catch (e) {}
+        if (!res.ok) {
+          throw new Error(data.error || data.message || `Server returned HTTP ${res.status}`);
+        }
         pollStatus();
       } catch (err) {
         alert('Error recording task: ' + err.message);

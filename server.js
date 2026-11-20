@@ -141,11 +141,12 @@ app.all('/api/record-all-today', async (req, res) => {
             task_id: task.task_id,
             package_name: task.package_name,
             target_day: task.target_day,
-            app_name: task.app_name || task.package_name
+            app_name: task.app_name || task.package_name,
+            logger: addLog
           });
           results.push(outcome);
           currentJob.completedCount++;
-          addLog(`[✓] Completed Task #${task.task_id}. Drive Link: ${outcome.drive_link || 'N/A'}`);
+          addLog(`[✓] Completed Task #${task.task_id}. Video Link: ${outcome.drive_link || 'N/A'}`);
         } catch (itemErr) {
           addLog(`[!] Failed Task #${task.task_id}: ${itemErr.message}`);
           results.push({ success: false, task_id: task.task_id, error: itemErr.message });
@@ -195,17 +196,47 @@ app.all('/api/record-task', async (req, res) => {
       task = found;
     }
 
-    const result = await recordPlayStoreReviewVideo({
-      task_id: task.task_id,
-      package_name: task.package_name,
-      target_day: task.target_day,
-      app_name: task.app_name || task.package_name
+    // Set job state immediately so UI updates in real-time
+    currentJob.status = 'running';
+    currentJob.currentTask = task;
+    currentJob.startTime = new Date().toISOString();
+    addLog(`Manually initiated recording for Task #${task.task_id} (${task.app_name || task.package_name})...`);
+
+    // Return instant HTTP 200 response so the browser never hangs or times out
+    res.json({
+      status: 'started',
+      message: `Recording started for Task #${task.task_id}`,
+      task: task
     });
 
-    res.json({
-      status: 'success',
-      data: result
-    });
+    // Execute in background
+    (async () => {
+      try {
+        const result = await recordPlayStoreReviewVideo({
+          task_id: task.task_id,
+          package_name: task.package_name,
+          target_day: task.target_day,
+          app_name: task.app_name || task.package_name,
+          logger: addLog
+        });
+
+        if (!Array.isArray(currentJob.lastResult)) currentJob.lastResult = [];
+        // Replace or add
+        const idx = currentJob.lastResult.findIndex(r => String(r.task_id) === String(task.task_id));
+        if (idx >= 0) currentJob.lastResult[idx] = result;
+        else currentJob.lastResult.push(result);
+
+        currentJob.completedCount++;
+        currentJob.status = 'idle';
+        currentJob.currentTask = null;
+        addLog(`[✓] Task #${task.task_id} completed successfully! Link: ${result.drive_link}`);
+      } catch (err) {
+        currentJob.status = 'error';
+        currentJob.currentTask = null;
+        addLog(`[!] Failed recording Task #${task.task_id}: ${err.message}`);
+      }
+    })();
+
   } catch (err) {
     res.status(500).json({ status: 'error', error: err.message });
   }
