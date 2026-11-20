@@ -613,7 +613,10 @@ async function recordPlayStoreReviewVideo({ task_id, package_name, target_day, a
       '--disable-dev-shm-usage',
       '--disable-gpu',
       '--no-first-run',
-      '--no-zygote'
+      '--no-zygote',
+      '--disable-web-security',
+      '--allow-running-insecure-content',
+      '--autoplay-policy=no-user-gesture-required'
     ]
   };
   if (chromiumPath) {
@@ -626,6 +629,9 @@ async function recordPlayStoreReviewVideo({ task_id, package_name, target_day, a
 
   try {
     const page = await browser.newPage();
+    await page.setDefaultNavigationTimeout(60000);
+    await page.setDefaultTimeout(60000);
+
     // Exact smartphone viewport (Pixel / Galaxy aspect ratio)
     await page.setViewport({
       width: 412,
@@ -633,7 +639,10 @@ async function recordPlayStoreReviewVideo({ task_id, package_name, target_day, a
       deviceScaleFactor: 2
     });
 
-    await page.setContent(htmlContent, { waitUntil: 'networkidle0' });
+    // Use domcontentloaded so slow external image CDN/avatars never stall the recording
+    await page.setContent(htmlContent, { waitUntil: 'domcontentloaded', timeout: 30000 });
+    // Brief pause to allow fonts, icons, and layout to settle
+    await new Promise(r => setTimeout(r, 1200));
 
     // Step 5: Start screen recorder
     const ffmpegPath = getFfmpegPath();
