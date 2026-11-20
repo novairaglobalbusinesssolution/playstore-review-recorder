@@ -1,0 +1,595 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Novaira | Play Store Review Recording Live Console</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['"Plus Jakarta Sans"', 'sans-serif'],
+            mono: ['"Fira Code"', 'monospace'],
+          },
+          colors: {
+            brand: {
+              50: '#eef2ff',
+              500: '#6366f1',
+              600: '#4f46e5',
+              700: '#4338ca',
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    /* Custom Scrollbar for Terminal */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: rgba(15, 23, 42, 0.6);
+    }
+    ::-webkit-scrollbar-thumb {
+      background: rgba(100, 116, 139, 0.4);
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: rgba(100, 116, 139, 0.7);
+    }
+    @keyframes pulse-ring {
+      0% { transform: scale(0.95); opacity: 0.8; }
+      50% { transform: scale(1.15); opacity: 0.3; }
+      100% { transform: scale(0.95); opacity: 0.8; }
+    }
+    .pulse-animation {
+      animation: pulse-ring 2s infinite ease-in-out;
+    }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen font-sans selection:bg-indigo-500 selection:text-white">
+
+  <!-- Top Glass Navigation Bar -->
+  <header class="sticky top-0 z-50 backdrop-blur-xl bg-slate-950/80 border-b border-slate-800/80 px-4 lg:px-8 py-3.5">
+    <div class="max-w-7xl mx-auto flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-600 to-cyan-400 p-0.5 shadow-lg shadow-indigo-500/20">
+          <div class="w-full h-full bg-slate-950 rounded-[10px] flex items-center justify-center text-cyan-400 font-black text-xl">
+            ▶
+          </div>
+        </div>
+        <div>
+          <div class="flex items-center gap-2">
+            <h1 class="text-base lg:text-lg font-bold tracking-tight text-white">Play Store Review Recorder</h1>
+            <span class="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">Cloud v2.0</span>
+          </div>
+          <p class="text-xs text-slate-400 font-medium">Novaira Automation Engine • Render Cloud Platform</p>
+        </div>
+      </div>
+
+      <!-- Live Sync & Action Controls -->
+      <div class="flex items-center gap-3">
+        <div id="liveIndicator" class="flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-semibold">
+          <span class="w-2 h-2 rounded-full bg-emerald-400 pulse-animation"></span>
+          <span id="liveStatusText">Live Connected</span>
+        </div>
+
+        <button id="btnTriggerAll" onclick="triggerRecordAll()" class="flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-indigo-500 to-cyan-500 hover:from-indigo-600 hover:to-cyan-600 text-white font-bold text-xs shadow-lg shadow-indigo-500/25 active:scale-95 transition-all">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+          <span>Record All Today's Apps</span>
+        </button>
+
+        <button onclick="refreshData()" class="p-2 rounded-xl bg-slate-800/80 hover:bg-slate-700 border border-slate-700/80 text-slate-300 transition-all text-xs" title="Refresh Now">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-7xl mx-auto px-4 lg:px-8 py-6 space-y-6">
+
+    <!-- 1. Top 4 Live Metrics Cards -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <!-- Card 1: Job Status -->
+      <div class="bg-slate-900/60 border border-slate-800/80 rounded-2xl p-4 backdrop-blur-sm">
+        <div class="flex items-center justify-between text-slate-400 text-xs font-semibold uppercase tracking-wider">
+          <span>Engine Status</span>
+          <span id="badgeJobStatus" class="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-slate-800 text-slate-300">IDLE</span>
+        </div>
+        <div class="mt-3 flex items-baseline gap-2">
+          <div id="statStatusHeadline" class="text-xl font-extrabold text-white">Standby</div>
+        </div>
+        <p id="statActiveTask" class="mt-1 text-xs text-slate-400 truncate font-mono">No active recording running</p>
+      </div>
+
+      <!-- Card 2: Today's Total Tasks -->
+      <div class="bg-slate-900/60 border border-slate-800/80 rounded-2xl p-4 backdrop-blur-sm">
+        <div class="flex items-center justify-between text-slate-400 text-xs font-semibold uppercase tracking-wider">
+          <span>Scheduled Today</span>
+          <span class="text-cyan-400 text-base">📅</span>
+        </div>
+        <div class="mt-3 flex items-baseline gap-2">
+          <span id="statTotalTasks" class="text-3xl font-black text-cyan-400">0</span>
+          <span class="text-xs text-slate-400 font-medium">apps</span>
+        </div>
+        <p class="mt-1 text-xs text-slate-400">Fetched from Live Checking queue</p>
+      </div>
+
+      <!-- Card 3: Completed Count -->
+      <div class="bg-slate-900/60 border border-slate-800/80 rounded-2xl p-4 backdrop-blur-sm">
+        <div class="flex items-center justify-between text-slate-400 text-xs font-semibold uppercase tracking-wider">
+          <span>Recorded & Uploaded</span>
+          <span class="text-emerald-400 text-base">🎬</span>
+        </div>
+        <div class="mt-3 flex items-baseline gap-2">
+          <span id="statCompletedCount" class="text-3xl font-black text-emerald-400">0</span>
+          <span class="text-xs text-slate-400 font-medium">of <span id="statTargetCount">0</span> finished</span>
+        </div>
+        <div class="w-full bg-slate-800 rounded-full h-1.5 mt-2 overflow-hidden">
+          <div id="statProgressBar" class="bg-gradient-to-r from-emerald-500 to-cyan-400 h-1.5 rounded-full transition-all duration-500" style="width: 0%"></div>
+        </div>
+      </div>
+
+      <!-- Card 4: Daily Auto Schedule -->
+      <div class="bg-slate-900/60 border border-slate-800/80 rounded-2xl p-4 backdrop-blur-sm">
+        <div class="flex items-center justify-between text-slate-400 text-xs font-semibold uppercase tracking-wider">
+          <span>Auto Dispatcher</span>
+          <span class="w-2 h-2 rounded-full bg-indigo-400 animate-ping"></span>
+        </div>
+        <div class="mt-3 flex items-baseline gap-2">
+          <span class="text-2xl font-black text-white">19:30</span>
+          <span class="text-xs text-indigo-400 font-bold uppercase">IST (Active)</span>
+        </div>
+        <p class="mt-1 text-xs text-slate-400">Automatic daily recording on Render</p>
+      </div>
+    </div>
+
+    <!-- 2. Split Screen: Real-Time Terminal & Live Player / Current Job -->
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+      <!-- Left Column: Real-Time Logs Console (7 Cols) -->
+      <div class="lg:col-span-7 bg-slate-900/90 border border-slate-800 rounded-2xl flex flex-col overflow-hidden shadow-2xl">
+        <!-- Terminal Header -->
+        <div class="px-4 py-3 bg-slate-950 border-b border-slate-800/80 flex items-center justify-between">
+          <div class="flex items-center gap-2">
+            <div class="flex items-center gap-1.5">
+              <span class="w-3 h-3 rounded-full bg-rose-500/80 inline-block"></span>
+              <span class="w-3 h-3 rounded-full bg-amber-500/80 inline-block"></span>
+              <span class="w-3 h-3 rounded-full bg-emerald-500/80 inline-block"></span>
+            </div>
+            <span class="ml-2 text-xs font-mono font-semibold text-slate-300">render-engine-stdout.log</span>
+          </div>
+
+          <div class="flex items-center gap-2 text-xs">
+            <button onclick="clearTerminalLogs()" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white transition font-mono">
+              Clear
+            </button>
+            <button onclick="copyTerminalLogs()" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white transition font-mono">
+              Copy
+            </button>
+          </div>
+        </div>
+
+        <!-- Terminal Output Window -->
+        <div id="terminalBody" class="p-4 font-mono text-[12px] leading-relaxed text-slate-300 bg-slate-950/70 h-[380px] overflow-y-auto space-y-1">
+          <div class="text-slate-500 italic">// Connected to Render review-recorder telemetry stream...</div>
+          <div class="text-cyan-400">[READY] System online. Waiting for jobs or scheduled timer...</div>
+        </div>
+
+        <!-- Terminal Footer Status -->
+        <div class="px-4 py-2.5 bg-slate-950/90 border-t border-slate-800/80 text-[11px] text-slate-400 font-mono flex items-center justify-between">
+          <div class="flex items-center gap-2">
+            <span class="inline-block w-2 h-2 rounded-full bg-cyan-400 animate-pulse"></span>
+            <span id="footerTerminalStatus">Monitoring process output in real-time</span>
+          </div>
+          <span id="terminalLogCount">0 lines</span>
+        </div>
+      </div>
+
+      <!-- Right Column: Currently Active / Video Output Monitor (5 Cols) -->
+      <div class="lg:col-span-5 flex flex-col gap-4">
+        
+        <!-- Live Action Telemetry Card -->
+        <div class="bg-slate-900/60 border border-slate-800/80 rounded-2xl p-5 backdrop-blur-sm flex flex-col justify-between h-full">
+          <div>
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-bold text-slate-400 uppercase tracking-wider">Active Recording Task</span>
+              <span id="badgeActiveLive" class="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-slate-800 text-slate-400">WAITING</span>
+            </div>
+
+            <!-- Active App Preview Box -->
+            <div id="activeTaskPreview" class="mt-4 p-4 rounded-xl bg-slate-950/60 border border-slate-800 flex items-start gap-3">
+              <div class="w-12 h-12 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center text-slate-500 font-bold text-lg shrink-0 overflow-hidden">
+                <span id="activeAppIconLetter">#</span>
+              </div>
+              <div class="flex-1 min-w-0">
+                <div class="flex items-center gap-2">
+                  <span id="activeTaskId" class="text-xs font-mono font-bold text-cyan-400">#---</span>
+                  <span id="activeAppDate" class="text-[11px] text-slate-400">Date: --/--/----</span>
+                </div>
+                <h4 id="activeAppName" class="text-sm font-bold text-white truncate mt-0.5">No Task Active</h4>
+                <p id="activeAppPackage" class="text-xs font-mono text-slate-400 truncate">Select or trigger recording to start</p>
+              </div>
+            </div>
+
+            <!-- Steps Tracker -->
+            <div class="mt-4 space-y-2.5">
+              <div class="flex items-center justify-between text-xs font-medium">
+                <span class="text-slate-400 flex items-center gap-2">
+                  <span id="step1Indicator" class="w-2 h-2 rounded-full bg-slate-700"></span> 1. Scrape Play Store Reviews
+                </span>
+                <span id="step1Status" class="font-mono text-slate-500 text-[11px]">Ready</span>
+              </div>
+              <div class="flex items-center justify-between text-xs font-medium">
+                <span class="text-slate-400 flex items-center gap-2">
+                  <span id="step2Indicator" class="w-2 h-2 rounded-full bg-slate-700"></span> 2. Virtual Smartphone Render
+                </span>
+                <span id="step2Status" class="font-mono text-slate-500 text-[11px]">Ready</span>
+              </div>
+              <div class="flex items-center justify-between text-xs font-medium">
+                <span class="text-slate-400 flex items-center gap-2">
+                  <span id="step3Indicator" class="w-2 h-2 rounded-full bg-slate-700"></span> 3. Headless Screen Recording
+                </span>
+                <span id="step3Status" class="font-mono text-slate-500 text-[11px]">Ready</span>
+              </div>
+              <div class="flex items-center justify-between text-xs font-medium">
+                <span class="text-slate-400 flex items-center gap-2">
+                  <span id="step4Indicator" class="w-2 h-2 rounded-full bg-slate-700"></span> 4. Google Drive Cloud Upload
+                </span>
+                <span id="step4Status" class="font-mono text-slate-500 text-[11px]">Ready</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Quick Action Bar -->
+          <div class="mt-6 pt-4 border-t border-slate-800/80 flex items-center justify-between">
+            <span class="text-xs text-slate-400">Server Time: <strong id="clockIST" class="text-white font-mono">--:--:--</strong></span>
+            <a href="https://drive.google.com/drive/folders/12vLF6tCDWzZnELqezqiPi9--Ty7FAQ04" target="_blank" class="text-xs font-bold text-indigo-400 hover:text-indigo-300 flex items-center gap-1 transition">
+              <span>Open Google Drive</span>
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg>
+            </a>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+
+    <!-- 3. Today's Apps Queue & Video Gallery -->
+    <div class="bg-slate-900/60 border border-slate-800/80 rounded-2xl overflow-hidden backdrop-blur-sm">
+      <div class="px-5 py-4 bg-slate-950/40 border-b border-slate-800/80 flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h3 class="text-base font-bold text-white flex items-center gap-2">
+            <span>Scheduled Applications Queue</span>
+            <span id="queueBadgeCount" class="px-2 py-0.5 rounded-full text-xs font-mono font-bold bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">0 Apps</span>
+          </h3>
+          <p class="text-xs text-slate-400 mt-0.5">Live checking applications target schedule for today</p>
+        </div>
+
+        <div class="flex items-center gap-2">
+          <input type="text" id="tableSearchInput" onkeyup="filterTasksTable()" placeholder="Search app name, package, or task ID..." class="px-3 py-1.5 rounded-xl bg-slate-950 border border-slate-800 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-indigo-500 w-64 font-mono">
+        </div>
+      </div>
+
+      <!-- Table Body -->
+      <div class="overflow-x-auto">
+        <table class="w-full text-left border-collapse text-xs">
+          <thead>
+            <tr class="border-b border-slate-800 bg-slate-950/50 text-slate-400 font-bold uppercase tracking-wider text-[11px]">
+              <th class="py-3 px-4">Task ID</th>
+              <th class="py-3 px-4">Application & Package</th>
+              <th class="py-3 px-4">Schedule Dates</th>
+              <th class="py-3 px-4">Status</th>
+              <th class="py-3 px-4 text-right">Video / Action</th>
+            </tr>
+          </thead>
+          <tbody id="tasksTableBody" class="divide-y divide-slate-800/60">
+            <tr>
+              <td colspan="5" class="py-8 text-center text-slate-500">
+                Loading live checking tasks from Novaira API...
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- Video Playback Modal -->
+  <div id="videoModal" class="fixed inset-0 z-50 hidden bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-800 rounded-3xl max-w-sm w-full overflow-hidden shadow-2xl">
+      <div class="px-4 py-3 bg-slate-950 border-b border-slate-800 flex items-center justify-between">
+        <h4 id="videoModalTitle" class="text-xs font-bold text-white truncate font-mono">Play Store Screen Recording</h4>
+        <button onclick="closeVideoModal()" class="text-slate-400 hover:text-white p-1 rounded-lg">✕</button>
+      </div>
+      <div class="p-3 bg-black flex justify-center">
+        <video id="modalVideoPlayer" controls autoplay class="rounded-xl max-h-[70vh] w-auto shadow-lg bg-black"></video>
+      </div>
+      <div class="p-3 bg-slate-950 border-t border-slate-800 flex items-center justify-between text-xs">
+        <a id="modalDownloadBtn" href="#" download class="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-semibold transition">Download MP4</a>
+        <a id="modalDriveBtn" href="#" target="_blank" class="px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold transition">Open in Drive</a>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let allTasks = [];
+    let jobStatusData = {};
+    let renderedVideosMap = {};
+    let isPollingActive = true;
+
+    // Clock
+    setInterval(() => {
+      const d = new Date();
+      document.getElementById('clockIST').innerText = d.toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata' });
+    }, 1000);
+
+    // Initial Fetch
+    refreshData();
+    setInterval(pollStatus, 1500);
+
+    async function refreshData() {
+      await fetchTasks();
+      await pollStatus();
+    }
+
+    async function fetchTasks() {
+      try {
+        const res = await fetch('/api/tasks');
+        const data = await res.json();
+        if (data && data.tasks) {
+          allTasks = data.tasks;
+          document.getElementById('statTotalTasks').innerText = allTasks.length;
+          document.getElementById('statTargetCount').innerText = allTasks.length;
+          document.getElementById('queueBadgeCount').innerText = `${allTasks.length} Apps`;
+          renderTasksTable();
+        }
+      } catch (err) {
+        console.error('Error fetching tasks:', err);
+      }
+    }
+
+    async function pollStatus() {
+      if (!isPollingActive) return;
+      try {
+        const res = await fetch('/api/status');
+        const data = await res.json();
+        if (data && data.data) {
+          jobStatusData = data.data;
+          updateDashboardUI();
+        }
+      } catch (err) {
+        document.getElementById('liveStatusText').innerText = 'Reconnecting...';
+        document.getElementById('liveIndicator').className = 'flex items-center gap-2 px-3 py-1.5 rounded-full bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs font-semibold';
+      }
+    }
+
+    function updateDashboardUI() {
+      const status = jobStatusData.status || 'idle';
+      const badge = document.getElementById('badgeJobStatus');
+      const headline = document.getElementById('statStatusHeadline');
+      const btnAll = document.getElementById('btnTriggerAll');
+      const activeBadge = document.getElementById('badgeActiveLive');
+
+      document.getElementById('liveStatusText').innerText = 'Live Connected';
+      document.getElementById('liveIndicator').className = 'flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-semibold';
+
+      if (status === 'running') {
+        badge.className = 'px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 animate-pulse';
+        badge.innerText = 'RECORDING ACTIVE';
+        headline.innerText = 'Recording...';
+        headline.className = 'text-xl font-extrabold text-cyan-400';
+        activeBadge.className = 'px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-cyan-500/20 text-cyan-400 border border-cyan-500/30';
+        activeBadge.innerText = 'PROCESSING';
+        btnAll.disabled = true;
+        btnAll.classList.add('opacity-50', 'cursor-not-allowed');
+      } else if (status === 'completed') {
+        badge.className = 'px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30';
+        badge.innerText = 'FINISHED';
+        headline.innerText = 'Completed';
+        headline.className = 'text-xl font-extrabold text-emerald-400';
+        activeBadge.innerText = 'DONE';
+        btnAll.disabled = false;
+        btnAll.classList.remove('opacity-50', 'cursor-not-allowed');
+      } else {
+        badge.className = 'px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-slate-800 text-slate-300';
+        badge.innerText = 'IDLE';
+        headline.innerText = 'Standby';
+        headline.className = 'text-xl font-extrabold text-white';
+        activeBadge.innerText = 'WAITING';
+        btnAll.disabled = false;
+        btnAll.classList.remove('opacity-50', 'cursor-not-allowed');
+      }
+
+      // Counts and Progress Bar
+      const completed = jobStatusData.completedCount || 0;
+      const total = jobStatusData.totalTasks || allTasks.length || 0;
+      document.getElementById('statCompletedCount').innerText = completed;
+      const pct = total > 0 ? Math.min(100, Math.round((completed / total) * 100)) : 0;
+      document.getElementById('statProgressBar').style.width = `${pct}%`;
+
+      // Active Task Details
+      const curr = jobStatusData.currentTask;
+      if (curr) {
+        document.getElementById('statActiveTask').innerText = `Task #${curr.task_id} • ${curr.app_name || curr.package_name}`;
+        document.getElementById('activeTaskId').innerText = `#${curr.task_id}`;
+        document.getElementById('activeAppDate').innerText = `Target: ${curr.target_day || 'Today'}`;
+        document.getElementById('activeAppName').innerText = curr.app_name || curr.package_name;
+        document.getElementById('activeAppPackage').innerText = curr.package_name;
+        document.getElementById('activeAppIconLetter').innerText = (curr.app_name && curr.app_name[0]) ? curr.app_name[0].toUpperCase() : 'A';
+      }
+
+      // Update Terminal Logs
+      if (jobStatusData.logs && jobStatusData.logs.length > 0) {
+        const terminal = document.getElementById('terminalBody');
+        const isScrolledToBottom = terminal.scrollHeight - terminal.clientHeight <= terminal.scrollTop + 50;
+
+        terminal.innerHTML = jobStatusData.logs.map(log => {
+          let color = 'text-slate-300';
+          if (log.includes('[✓]') || log.includes('Completed') || log.includes('successfully')) color = 'text-emerald-400 font-semibold';
+          else if (log.includes('[!]') || log.includes('Error') || log.includes('Failed')) color = 'text-rose-400 font-semibold';
+          else if (log.includes('Recording') || log.includes('Starting')) color = 'text-cyan-400';
+          else if (log.includes('Uploading')) color = 'text-indigo-400';
+          return `<div class="${color}">${escapeHtml(log)}</div>`;
+        }).join('');
+
+        if (isScrolledToBottom) {
+          terminal.scrollTop = terminal.scrollHeight;
+        }
+        document.getElementById('terminalLogCount').innerText = `${jobStatusData.logs.length} lines`;
+      }
+
+      // Track last completed results for video links
+      if (jobStatusData.lastResult && Array.isArray(jobStatusData.lastResult)) {
+        jobStatusData.lastResult.forEach(res => {
+          if (res && res.task_id && res.drive_link) {
+            renderedVideosMap[String(res.task_id)] = res.drive_link;
+          }
+        });
+        renderTasksTable();
+      }
+    }
+
+    function renderTasksTable() {
+      const tbody = document.getElementById('tasksTableBody');
+      if (!allTasks || allTasks.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="5" class="py-8 text-center text-slate-500">No applications scheduled for live checking today.</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = allTasks.map(task => {
+        const taskIdStr = String(task.task_id);
+        const videoLink = renderedVideosMap[taskIdStr] || '';
+        const isCurrentActive = jobStatusData.currentTask && String(jobStatusData.currentTask.task_id) === taskIdStr;
+
+        let statusBadge = `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-800 text-slate-400 border border-slate-700">Pending</span>`;
+        if (isCurrentActive) {
+          statusBadge = `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 animate-pulse">Recording...</span>`;
+        } else if (videoLink) {
+          statusBadge = `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center gap-1 w-max"><span>✓</span> <span>Uploaded</span></span>`;
+        }
+
+        let actionButton = '';
+        if (videoLink) {
+          actionButton = `
+            <div class="flex items-center justify-end gap-1.5">
+              <button onclick="playVideo('${escapeHtml(videoLink)}', '${escapeHtml(task.app_name)}')" class="px-2.5 py-1 rounded-lg bg-emerald-600/20 hover:bg-emerald-600/30 border border-emerald-500/30 text-emerald-400 font-bold text-[11px] transition">
+                ▶ Watch Video
+              </button>
+              <a href="${escapeHtml(videoLink)}" target="_blank" class="p-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300" title="Open Drive">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg>
+              </a>
+            </div>
+          `;
+        } else {
+          actionButton = `
+            <button onclick="recordSingleTask('${escapeHtml(task.task_id)}')" class="px-2.5 py-1 rounded-lg bg-indigo-600/20 hover:bg-indigo-600/30 border border-indigo-500/30 text-indigo-400 font-bold text-[11px] transition">
+              Record Now
+            </button>
+          `;
+        }
+
+        return `
+          <tr class="hover:bg-slate-900/50 transition-colors">
+            <td class="py-3.5 px-4 font-mono font-bold text-cyan-400">
+              #${task.task_id}
+            </td>
+            <td class="py-3.5 px-4">
+              <div class="flex flex-col">
+                <span class="font-bold text-white text-xs">${escapeHtml(task.app_name || 'App')}</span>
+                <span class="font-mono text-[11px] text-slate-400 truncate max-w-xs">${escapeHtml(task.package_name)}</span>
+              </div>
+            </td>
+            <td class="py-3.5 px-4">
+              <div class="flex flex-col text-[11px]">
+                <span class="text-slate-300">Release: <strong>${task.release_date || task.app_date || 'N/A'}</strong></span>
+                <span class="text-slate-500">Live: ${task.live_checking_date || 'Today'}</span>
+              </div>
+            </td>
+            <td class="py-3.5 px-4">
+              ${statusBadge}
+            </td>
+            <td class="py-3.5 px-4 text-right">
+              ${actionButton}
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    async function triggerRecordAll() {
+      if (!confirm('Start automated review recording for all scheduled apps today?')) return;
+      try {
+        const res = await fetch('/api/record-all-today', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ key: 'Novaira002@#' })
+        });
+        const data = await res.json();
+        pollStatus();
+      } catch (err) {
+        alert('Error triggering recording: ' + err.message);
+      }
+    }
+
+    async function recordSingleTask(taskId) {
+      try {
+        const res = await fetch(`/api/record-task?task_id=${taskId}`);
+        const data = await res.json();
+        pollStatus();
+      } catch (err) {
+        alert('Error recording task: ' + err.message);
+      }
+    }
+
+    function playVideo(videoUrl, appName) {
+      document.getElementById('videoModalTitle').innerText = appName || 'Play Store Review Video';
+      const videoPlayer = document.getElementById('modalVideoPlayer');
+      videoPlayer.src = videoUrl;
+      document.getElementById('modalDownloadBtn').href = videoUrl;
+      document.getElementById('modalDriveBtn').href = videoUrl;
+      document.getElementById('videoModal').classList.remove('hidden');
+    }
+
+    function closeVideoModal() {
+      const videoPlayer = document.getElementById('modalVideoPlayer');
+      videoPlayer.pause();
+      videoPlayer.src = '';
+      document.getElementById('videoModal').classList.add('hidden');
+    }
+
+    function filterTasksTable() {
+      const q = document.getElementById('tableSearchInput').value.toLowerCase().trim();
+      const rows = document.querySelectorAll('#tasksTableBody tr');
+      rows.forEach(r => {
+        const text = r.innerText.toLowerCase();
+        r.style.display = text.includes(q) ? '' : 'none';
+      });
+    }
+
+    function clearTerminalLogs() {
+      document.getElementById('terminalBody').innerHTML = '<div class="text-slate-500 italic">// Terminal cleared</div>';
+      document.getElementById('terminalLogCount').innerText = '0 lines';
+    }
+
+    function copyTerminalLogs() {
+      const logs = (jobStatusData.logs || []).join('\n');
+      navigator.clipboard.writeText(logs).then(() => alert('Logs copied to clipboard!'));
+    }
+
+    function escapeHtml(text) {
+      if (!text) return '';
+      return String(text).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+  </script>
+</body>
+</html>

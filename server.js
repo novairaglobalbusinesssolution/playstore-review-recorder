@@ -12,6 +12,14 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// Serve static dashboard UI & recorded video files statically on Render
+const path = require('path');
+const fs = require('fs');
+const tempVideosDir = path.join(__dirname, 'temp_videos');
+if (!fs.existsSync(tempVideosDir)) fs.mkdirSync(tempVideosDir, { recursive: true });
+app.use('/videos', express.static(tempVideosDir));
+app.use(express.static(path.join(__dirname, 'public')));
+
 // Job State Management
 let currentJob = {
   status: 'idle', // 'idle' | 'running' | 'completed' | 'error'
@@ -32,9 +40,9 @@ function addLog(msg) {
 }
 
 // ----------------------------------------------------
-// Health Checks (Render Requirement)
+// Health Checks (Render Requirement) & Dashboard Routes
 // ----------------------------------------------------
-app.get(['/', '/health'], (req, res) => {
+app.get('/health', (req, res) => {
   res.json({
     status: 'online',
     service: 'playstore-review-recorder (Render Cloud Edition)',
@@ -42,6 +50,19 @@ app.get(['/', '/health'], (req, res) => {
     ist_time: new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }),
     job_status: currentJob.status
   });
+});
+
+app.get(['/', '/dashboard'], (req, res) => {
+  if (req.headers.accept && req.headers.accept.includes('application/json')) {
+    return res.json({
+      status: 'online',
+      service: 'playstore-review-recorder (Render Cloud Edition)',
+      timestamp: new Date().toISOString(),
+      ist_time: new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }),
+      job_status: currentJob.status
+    });
+  }
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
 // ----------------------------------------------------

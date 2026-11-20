@@ -623,18 +623,20 @@ async function recordPlayStoreReviewVideo({ task_id, package_name, target_day, a
   const fileSizeMB = (fs.statSync(outputVideoPath).size / (1024 * 1024)).toFixed(2);
   console.log(`[CloudRecorder] Video rendered successfully! File: ${videoFileName} (${fileSizeMB} MB)`);
 
-  // Step 6: Upload to Google Drive
+  // Step 6: Upload to Google Drive / Apps Script or serve via Render Host
   let driveLink = '';
-  if (process.env.GDRIVE_SERVICE_ACCOUNT_JSON && process.env.GDRIVE_FOLDER_ID) {
-    console.log(`[CloudRecorder] Uploading to Google Drive folder: ${process.env.GDRIVE_FOLDER_ID}...`);
+  try {
     driveLink = await uploadVideoToDrive(outputVideoPath);
-    console.log(`[CloudRecorder] Drive upload complete: ${driveLink}`);
-  } else {
-    console.warn('[CloudRecorder] GDrive credentials not configured. Video kept at: ' + outputVideoPath);
+    console.log(`[CloudRecorder] Video shareable link: ${driveLink}`);
+  } catch (uploadErr) {
+    console.warn(`[CloudRecorder] Upload warning: ${uploadErr.message}`);
+    const renderHost = process.env.RENDER_EXTERNAL_URL || 'https://playstore-review-recorder.onrender.com';
+    driveLink = `${renderHost}/videos/${videoFileName}`;
   }
 
-  // Step 7: Delete local temp file
-  if (driveLink && fs.existsSync(outputVideoPath)) {
+  // Step 7: Only delete local temp file if it was uploaded to an external cloud (Google Drive)
+  // If it's being served directly from Render's /videos, keep it so it's streamable and downloadable!
+  if (driveLink && !driveLink.includes('/videos/') && fs.existsSync(outputVideoPath)) {
     fs.unlinkSync(outputVideoPath);
     console.log(`[CloudRecorder] Temporary video cleaned up.`);
   }
